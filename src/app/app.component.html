@@ -1,0 +1,17 @@
+<div *ngIf="Handler">
+
+  <div class="c">
+    <div class="e" [ngStyle]="{'top': Handler.Elevator.top}"></div>
+  </div>
+
+  <div class="ls">
+    <div class="l" *ngFor="let level of Handler.Levels">
+      <button type="button" class="btn btn-secondary" [ngClass]="{'btn-success': level.isCalled }" (click)="Handler.call(level)">[
+        {{level.number}} ]</button>
+      <div class="p" *ngFor="let person of Handler.People.Queues[level.number]">{{person.wantsToGo}}</div>
+    </div>
+  </div>
+
+  <!-- queue: <div *ngFor="let lq of Handler.Elevator.levelQueue">[{{lq.number}}]</div> -->
+
+</div>
