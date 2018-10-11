@@ -1,6 +1,7 @@
 # Elevator
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 6.2.4.
+Hosted on firebase (prod) within this [link](https://elevator-224c8.firebaseapp.com)
 
 ## Development server
 
