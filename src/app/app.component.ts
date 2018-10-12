@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
-
-const LEVEL_COUNT = 9;
+import { environment } from 'src/environments/environment';
+import remove from 'lodash.remove';
 
 @Component({
   selector: 'app-root',
@@ -9,7 +9,9 @@ const LEVEL_COUNT = 9;
 })
 export class AppComponent {
 
-  Handler: Handler = new Handler(LEVEL_COUNT);
+  CAGE_HEIGHT: string = `${(environment.LEVEL_COUNT + 1) * environment.LEVEL_HEIGHT + 1}px`;
+
+  Handler: Handler = new Handler(environment.LEVEL_COUNT);
 
 }
 
@@ -22,12 +24,13 @@ function random(max) {
 class Handler {
   Elevator: Elevator;
   Levels: Level[];
-  People: People;
 
   constructor(levelCount: number) {
     this.Levels = this.buildLevels(levelCount);
     this.Elevator = new Elevator(levelCount);
-    this.People = new People(levelCount);
+
+    this.addRandomPerson(levelCount);
+    this.call(this.Levels[levelCount]);
   }
 
   private buildLevels(levelCount: number): Level[] {
@@ -44,27 +47,31 @@ class Handler {
       this.Elevator.addQueue(level);
     }
   }
+
+  private addRandomPerson(count: number) {
+    for (let i = 0; i < count; i++) {
+      const index = random(this.Levels.length);
+      const person = new Person(this.Levels.length, this.Levels[index].number);
+      this.Levels[index].people.push(person);
+    }
+  }
 }
 
 
 class Elevator {
-  readonly ELEVATOR_DELAY = 30;     // timeout delay
-  readonly ELEVATOR_WAITING = 1000; // waiting time
-  readonly ELEVATOR_SPEED = 0.05;   // speed in % px
-  readonly LEVEL_HEIGHT = 100;      // level height in px
-
   readonly LEVEL_COUNT: number;
   position: number;
   top: string;
 
-  levelQueue: Level[] = [];
+  levelQueue: Level[] = new Array<Level>();
+  people: Person[] = new Array<Person>();
   isMoving: boolean = false;
 
   constructor(levelCount: number, level: number = 0) {
     this.LEVEL_COUNT = levelCount;
     this.setPosition(level);
   }
-
+  
   public addQueue(level: Level) {
     this.levelQueue.push(level);
     this.processQueue();
@@ -81,34 +88,54 @@ class Elevator {
   }
 
   private process(level: Level) {
-    const interLevel = this.levelQueue.find(l => this.position === l.number);
-    if (interLevel) {
-      this.levelQueue.splice(this.levelQueue.indexOf(interLevel), 1);
-      this.levelQueue.unshift(level);
-      // this.addQueue(level);
-      return this.deserving(interLevel);
-    }
+    // elevator intel
+    // const interLevel = this.levelQueue.find(l => this.position === l.number);
+    // if (interLevel) {
+    //   this.levelQueue.splice(this.levelQueue.indexOf(interLevel), 1);
+    //   this.levelQueue.unshift(level);
+    //   return this.deserving(interLevel);
+    // }
     if (this.position === level.number) {
       return this.deserving(level);
     }
-    const newPosition = this.position + (this.ELEVATOR_SPEED * (this.position < level.number ? 1 : -1));
+    const newPosition = this.position + (environment.ELEVATOR_SPEED * (this.position < level.number ? 1 : -1));
     this.setPosition(Math.round(newPosition * 100) / 100); // rounding (depend on ELEVATOR_SPEED)
     setTimeout(() => {
       this.process(level);
-    }, this.ELEVATOR_DELAY);
+    }, environment.ELEVATOR_DELAY);
   }
 
   private deserving(level: Level) {
     level.isCalled = false;
+    // drop
+    setTimeout(() => {
+      this.dropPeople(level);
+    }, environment.ELEVATOR_WAITING * (1 / 3));
+    // take
+    setTimeout(() => {
+      this.takePeople(level);
+    }, environment.ELEVATOR_WAITING * (2 / 3));
+    // move next
     setTimeout(() => {
       this.isMoving = false;
       this.processQueue();
-    }, this.ELEVATOR_WAITING);
+    }, environment.ELEVATOR_WAITING);
+  }
+
+  private dropPeople(level: Level) {
+    remove(this.people, (p) => p.wantsToGo === level.number);
+  }
+
+  private takePeople(level: Level) {
+    for (let i = environment.ELEVATOR_SLOT - this.people.length; i > 0 && level.people.length; i--) {
+      const person = level.people.shift();
+      this.people.push(person);
+    }
   }
 
   private setPosition(position: number) {
     this.position = position;
-    this.top = `${(this.LEVEL_COUNT - this.position) * this.LEVEL_HEIGHT}px`;
+    this.top = `${(this.LEVEL_COUNT - this.position) * environment.LEVEL_HEIGHT}px`;
   }
 }
 
@@ -116,41 +143,19 @@ class Elevator {
 class Level {
   readonly number: number;
   isCalled: boolean = false;
+  people: Person[] = new Array<Person>();
 
   constructor(number) {
     this.number = number;
   }
 }
 
-
-class People {
-  Queues: Person[][];
-
-  constructor(levelCount: number) {
-    this.Queues = [];
-    for (let i = 0; i <= levelCount; i++) {
-      this.Queues.push([]);
-    }
-    // TEST
-    for (let i = 0; i < 10; i++) {
-      this.addRandomPerson();
-    }
-  }
-
-  addRandomPerson() {
-    const index = random(this.Queues.length);
-    this.Queues[index].push(new Person(this.Queues.length, index));
-  }
-}
-
-
 class Person {
-  wantsToGo: number;
+  readonly wantsToGo: number;
 
   constructor(levelCount: number, from: number) {
-    this.wantsToGo = from;
-    while (this.wantsToGo === from) {
+    do {
       this.wantsToGo = random(levelCount);
-    }
+    } while (this.wantsToGo === from);
   }
 }
